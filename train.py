@@ -52,7 +52,7 @@ def _train_stage(
 
     for epoch in range(1, epochs_adam + 1):
         optimizer_adam.zero_grad()
-        loss, l_pde, l_ic, l_bc = pinn_loss(model, batch, cfg)
+        loss, l_pde, l_ic, l_bc, w_mean = pinn_loss(model, batch, cfg)
         loss.backward()
         optimizer_adam.step()
 
@@ -64,6 +64,7 @@ def _train_stage(
             "loss_pde": l_pde.item(),
             "loss_ic":  l_ic.item(),
             "loss_bc":  l_bc.item(),
+            "w_mean":   w_mean,
             "elapsed":  time.perf_counter() - t0,
         })
 
@@ -73,6 +74,7 @@ def _train_stage(
                 f"  pde={l_pde.item():.3e}"
                 f"  ic={l_ic.item():.3e}"
                 f"  bc={l_bc.item():.3e}"
+                f"  w={w_mean:.3f}"
             )
 
     # ---- L-BFGS ----------------------------------------------------------
@@ -89,7 +91,7 @@ def _train_stage(
 
     def closure():
         optimizer_lbfgs.zero_grad()
-        loss, l_pde, l_ic, l_bc = pinn_loss(model, batch, cfg)
+        loss, l_pde, l_ic, l_bc, w_mean = pinn_loss(model, batch, cfg)
         loss.backward()
         iter_count[0] += 1
 
@@ -101,6 +103,7 @@ def _train_stage(
             "loss_pde": l_pde.item(),
             "loss_ic":  l_ic.item(),
             "loss_bc":  l_bc.item(),
+            "w_mean":   w_mean,
             "elapsed":  time.perf_counter() - t0,
         })
 
@@ -110,6 +113,7 @@ def _train_stage(
                 f"  pde={l_pde.item():.3e}"
                 f"  ic={l_ic.item():.3e}"
                 f"  bc={l_bc.item():.3e}"
+                f"  w={w_mean:.3f}"
             )
         return loss
 
