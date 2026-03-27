@@ -47,7 +47,7 @@ Le calcul numérique de cette intégrale a nécessité une **stabilisation en lo
 
 ### 3. Échantillonnage adaptatif
 
-Le choc de Burgers se forme dans la région $x \approx 0$, $t \in [0{,}5, 1]$. Un tirage uniforme des points de collocation sous-échantillonne cette zone critique. On utilise donc un mélange : 75 % de points uniformes sur tout le domaine, 25 % de points concentrés autour du choc ($x \sim \mathcal{N}(0, 0{,}15)$, $t \sim \mathcal{U}(0{,}4, 1)$).
+Le choc de Burgers se forme dans la région $x \approx 0$, $t \in [0{,}5, 1]$. Un tirage uniforme des points de collocation sous-échantillonne cette zone critique. On utilise donc un mélange : 75 % de points uniformes sur tout le domaine, 25 % de points concentrés autour du choc.
 
 ### 4. Curriculum temporel
 
@@ -62,7 +62,7 @@ Un entraînement direct sur $t \in [0,1]$ conduit à un minimum local : le rése
 
 ### 5. Pondération causale (Wang et al., 2022)
 
-Même avec le curriculum, le résidu PDE reste élevé dans les premiers instants car l'optimiseur traite tous les points de collocation de façon équivalente, sans respecter l'ordre causal de la dynamique. On implémente la **causal weighting** (Wang et al., 2022) : chaque point de collocation au temps $t_k$ reçoit un poids
+Même avec le curriculum, le résidu PDE reste élevé dans les premiers instants car l'optimiseur traite tous les points de collocation de façon équivalente, sans respecter l'ordre causal de la dynamique (c'est-à-dire que le réseau cherche à minimiser de manière homogène sur tout le domaine, sans nécessairement privilégier les zones de choc). Pour tenter de résoudre ce problème, on implémente la **causal weighting** (Wang et al., 2022) : chaque point de collocation au temps $t_k$ reçoit un poids
 
 $$w(t_k) = \exp\!\left(-\varepsilon \sum_{t_j < t_k} \bar{\mathcal{L}}_j\right)$$
 
@@ -136,17 +136,17 @@ skip_training: bool = True
 | Erreur L2 relative | $\approx 0{,}78$ |
 | Erreur L∞ relative | $\approx 0{,}96$ |
 
-La solution PINN capture correctement la condition initiale (erreur $< 0{,}01$) et les conditions aux bords (erreur $< 10^{-6}$). Elle reproduit qualitativement la dynamique de Burgers — formation du choc, antisymétrie — mais présente un **décalage de phase spatial** qui s'accumule progressivement entre $t=0$ et $t=1$.
+La solution PINN capture correctement la condition initiale (erreur $< 0{,}01$) et les conditions aux bords (erreur $< 10^{-6}$). Elle reproduit qualitativement la dynamique de Burgers (formation du choc, antisymétrie) mais présente un **décalage de phase spatial** qui s'accumule progressivement entre $t=0$ et $t=1$.
 
 ### Comparaison avec Raissi et al. (2019)
 
-Raissi et al. proposent deux formulations pour Burgers. Dans leur **modèle continu** (le plus proche du nôtre), ils rapportent des erreurs L2 de l'ordre de $10^{-2}$ à $10^{-3}$, mais en travaillant avec $\nu = 0{,}1/\pi$ — une viscosité **dix fois plus grande**, qui atténue considérablement le choc. Leur **modèle discret** (Runge-Kutta implicite à 100 stages) appliqué à $\nu = 0{,}01/\pi$ obtient de meilleures performances en résolvant le problème séquentiellement en temps, ce qui contourne naturellement le problème de causalité.
+Raissi et al. proposent deux formulations pour Burgers. Dans leur **modèle continu** (le plus proche de celui-ci), ils rapportent des erreurs L2 de l'ordre de $10^{-2}$ à $10^{-3}$, mais en travaillant avec $\nu = 0{,}1/\pi$ — une viscosité **dix fois plus grande**, qui atténue considérablement le choc. Leur **modèle discret** (Runge-Kutta implicite à 100 stages) appliqué à $\nu = 0{,}01/\pi$ obtient de meilleures performances en résolvant le problème séquentiellement en temps, ce qui contourne naturellement le problème de causalité.
 
-La comparaison directe est donc délicate : le cas $\nu = 0{,}01/\pi$ en formulation continue est significativement plus difficile, et les erreurs observées ici sont cohérentes avec ce que la littérature post-2019 documente pour ce régime.
+La comparaison directe est alors à prendre avec dur recul : le cas $\nu = 0{,}01/\pi$ en formulation continue est significativement plus difficile, et les erreurs observées ici sont cohérentes avec ce que la littérature post-2019 documente pour ce régime.
 
 ### Pourquoi le décalage persiste
 
-Un MLP à activation tanh est une fonction **infiniment dérivable**. Or la solution de Burgers avec petit $\nu$ devient quasi-discontinue en $x = 0$ vers $t = 1$. Le réseau ne peut pas représenter exactement cette discontinuité — il l'approche par une fonction lisse dont le centre est décalé. Ce n'est pas un problème d'optimisation (la loss converge bien) mais une **limite de capacité de représentation** de l'architecture.
+Un MLP à activation tanh est une fonction **infiniment dérivable** ; or la solution de Burgers avec petit $\nu$ devient quasi-discontinue en $x = 0$ vers $t = 1$. Le réseau ne peut pas représenter exactement cette discontinuité, il l'approche par une fonction lisse dont le centre est décalé. Cela ne semble donc pas être un problème d'optimisation (car la loss converge bien) mais une **limite de capacité de représentation** de l'architecture utilisée.
 
 ---
 
