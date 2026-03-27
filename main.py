@@ -1,11 +1,12 @@
 """
-main.py — entry point for the Burgers PINN experiment.
+main.py — point d'entrée pour faire tourner l'expérimentation globale Burgers PINN.
 
-Run (full pipeline):
+Exécution (pipeline complet) :
     python main.py
 
-Run (evaluation only, reuse existing model.pt):
-    set skip_training = True in config.py
+Exécution (évaluation uniquement, réutilisation du fichier model.pt existant) :
+    set skip_training = True dans config.py
+    
 """
 
 import os
@@ -29,10 +30,10 @@ from evaluate import (
 
 def main() -> None:
     # ------------------------------------------------------------------ #
-    # Setup                                                                #
+    # Setup                                                              #
     # ------------------------------------------------------------------ #
-    cfg    = Config()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    cfg          = Config()
+    device       = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     os.makedirs(cfg.save_path, exist_ok=True)
     weights_path = os.path.join(cfg.save_path, "model.pt")
 
@@ -45,14 +46,14 @@ def main() -> None:
     print()
 
     # ------------------------------------------------------------------ #
-    # Model                                                                #
+    # Modèle                                                             #
     # ------------------------------------------------------------------ #
     model = PINN(cfg.layers).to(device)
     n_params = sum(p.numel() for p in model.parameters())
     print(f"Network parameters: {n_params:,}\n")
 
     # ------------------------------------------------------------------ #
-    # Training  — or load existing weights                                 #
+    # Training (ou enregistrement des poids existants)                   #
     # ------------------------------------------------------------------ #
     if cfg.skip_training:
         if not os.path.exists(weights_path):
@@ -73,7 +74,7 @@ def main() -> None:
         print(f"Weights saved -> {weights_path}\n")
 
     # ------------------------------------------------------------------ #
-    # Evaluation                                                           #
+    # Evaluation                                                         #
     # ------------------------------------------------------------------ #
     Nx, Nt = 100, 50
     x_vec = np.linspace(cfg.x_min, cfg.x_max, Nx)
@@ -82,7 +83,7 @@ def main() -> None:
     print("Computing PINN prediction on grid ...")
     U_pred = predict_on_grid(model, x_vec, t_vec, device)
 
-    # Cache exact solution — invalidate automatically if grid size changed
+    # Mettre en cache la solution exacte — invalide automatiquement si la taille de la grille change
     exact_cache    = os.path.join(cfg.save_path, "U_exact.npy")
     expected_shape = (Nx, Nt)
 
@@ -102,15 +103,23 @@ def main() -> None:
         np.save(exact_cache, U_exact)
         print(f"Exact solution cached -> {exact_cache}")
 
-    print(f"U_exact  min={U_exact.min():.3f}  max={U_exact.max():.3f}")
-    print(f"U_pred   min={U_pred.min():.3f}  max={U_pred.max():.3f}")
+    print("U_pred  x=-0.5, t=0.5:", U_pred[25, 25])
+    print("U_pred  x=+0.5, t=0.5:", U_pred[75, 25])
+    print("U_exact x=-0.5, t=0.5:", U_exact[25, 25])
+    print("U_exact x=+0.5, t=0.5:", U_exact[75, 25])
 
     l2   = relative_l2(U_pred, U_exact)
     linf = relative_linf(U_pred, U_exact)
     print(f"\n  Relative L2   error : {l2:.4e}")
     print(f"  Relative Linf error : {linf:.4e}\n")
 
-    # Save metrics
+    print("\n--- Évolution de l'erreur dans le temps ---")
+    for t_target in [0.1, 0.25, 0.5, 0.75, 1.0]:
+        j = np.argmin(np.abs(t_vec - t_target))
+        err = np.mean(np.abs(U_pred[:, j] - U_exact[:, j]))
+        print(f"  t={t_target:.2f}  erreur moyenne = {err:.4f}")
+
+    # Enregistre les différentess mesures
     metrics_path = os.path.join(cfg.save_path, "metrics.csv")
     with open(metrics_path, "w", newline="") as f:
         writer = csv.writer(f)
@@ -120,7 +129,7 @@ def main() -> None:
     print(f"Metrics saved -> {metrics_path}")
 
     # ------------------------------------------------------------------ #
-    # Plots                                                                #
+    # Plots                                                              #
     # ------------------------------------------------------------------ #
     if history is not None:
         plot_training_history(history, cfg)

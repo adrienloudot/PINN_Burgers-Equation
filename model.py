@@ -1,9 +1,10 @@
 """
-PINN architecture for the Burgers equation.
+Architecture PINN pour l'équation de Burgers.
 
-A simple MLP with tanh activations and Xavier weight initialisation.
-Input:  (x, t)  — spatial and temporal coordinates
-Output: u(x, t) — predicted velocity field
+Un MLP simple avec des fonctions d'activation tanh et une initialisation des poids selon la méthode de Xavier.
+Entrée : (x, t) — coordonnées spatiales et temporelles
+Sortie : u(x, t) — champ de vitesse prédit
+
 """
 
 import torch
@@ -13,13 +14,14 @@ from torch import Tensor
 
 class PINN(nn.Module):
     """
-    Multi-layer perceptron used as a physics-informed neural network.
+    Perceptron multicouche utilisé comme réseau neuronal informé par la physique.
 
-    Parameters
+    Paramètres
     ----------
-    layers : list[int]
-        Widths of each layer including input and output.
-        Example: [2, 64, 64, 64, 1]
+    layers : liste[entier]
+        Largeurs de chaque couche, y compris les couches d'entrée et de sortie.
+        Exemple : [2, 64, 64, 64, 1]
+
     """
 
     def __init__(self, layers: list[int], sigma=1.0) -> None:
@@ -30,24 +32,25 @@ class PINN(nn.Module):
         ])
         self._initialize_weights()
 
-    # ------------------------------------------------------------------
+    # -- Initialisation de Xavier --
     def _initialize_weights(self) -> None:
-        """Xavier normal init for weights, zeros for biases."""
+        """Initialisation normale de Xavier pour les poids, zéros pour les biais."""
         for layer in self.net:
             nn.init.xavier_normal_(layer.weight)
             nn.init.zeros_(layer.bias)
 
-    # ------------------------------------------------------------------
+    # -- Calcul forward --
     def forward(self, x: Tensor, t: Tensor) -> Tensor:
         """
-        Parameters
+        Paramètres
         ----------
-        x : Tensor of shape (N, 1)
-        t : Tensor of shape (N, 1)
+        x : Tenseur de la forme (N, 1)
+        t : Tenseur de la forme (N, 1)
 
-        Returns
+        Résultats
         -------
-        u : Tensor of shape (N, 1)
+        u : Tenseur de la forme (N, 1)
+
         """
         z = torch.cat([x, t], dim=1)
         for layer in self.net[:-1]:

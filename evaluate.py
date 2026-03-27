@@ -1,9 +1,10 @@
 """
-Evaluation module.
+Module d'évaluation.
 
-* Cole-Hopf exact solution for the Burgers equation
-* L2 / Linf relative error computation
-* Visualisation: heatmap comparison + time slices
+- Solution exacte de Cole-Hopf pour l'équation de Burgers
+- Calcul de l'erreur relative L2 / Linf
+- Visualisation : comparaison sous forme de carte thermique + tranches temporelles
+
 """
 
 import os
@@ -19,25 +20,26 @@ from config import Config
 
 
 # -----------------------------------------------------------------------
-# Exact solution via Cole-Hopf transform  (numerically stable)
+# Solution exacte via Cole-Hopf (numériquement stable)
 # -----------------------------------------------------------------------
 #
-# For u(x,0) = -sin(pi*x), the Cole-Hopf solution is:
+# Pour u(x,0) = -sin(π*x), la solution de Cole-Hopf est :
 #
-#   u(x,t) = -2*nu * phi_x / phi
+#   u(x,t) = -2*nu * φ_x / φ
 #
-# where  phi(x,t) = ∫ exp[ F(x,xi,t) ] dxi
+# où  φ(x,t) = ∫ exp[ F(x,xi,t) ] dxi
 #        F = cos(pi*xi)/(2*nu*pi)  -  (x-xi)²/(4*nu*t)
 #
-# The exponent can reach ~50 for small nu, causing exp() overflow.
-# Fix: subtract the maximum of F before exponentiating (log-sum-exp trick),
-# then the ratio phi_x/phi cancels the offset automatically.
+# L'exposant peut atteindre environ 50 pour de petites valeurs de nu, provoquant un débordement de la fonction exp().
+# Solution : soustraire la valeur maximale de F avant l'exponentiation (astuce log-somme-exp),
+# puis le rapport phi_x/phi annule automatiquement le décalage.
+#
 # -----------------------------------------------------------------------
 
 def _log_integrand_max(x: float, t: float, nu: float) -> float:
-    """Peak of F(x, xi, t) w.r.t. xi — used for numerical stabilisation."""
-    # F = cos(pi*xi)/(2*nu*pi) - (x-xi)^2/(4*nu*t)
-    # No closed form, so we sample densely and take the max.
+    # Maximum de F(x, xi, t) par rapport à xi — utilisé pour la stabilisation numérique. 
+    # F = cos(π*xi)/(2*ν*π) - (x-xi)²/(4*ν*t)
+    # Pas de formule exacte, on procède donc à un échantillonnage dense et on prend la valeur maximale.
     xi = np.linspace(x - 4, x + 4, 2000)
     F  = np.cos(np.pi * xi) / (2.0 * nu * np.pi) - (x - xi) ** 2 / (4.0 * nu * t)
     return F.max()
@@ -45,10 +47,11 @@ def _log_integrand_max(x: float, t: float, nu: float) -> float:
 
 def _stable_integrals(x: float, t: float, nu: float):
     """
-    Return (phi, phi_x) using a log-space stabilised quadrature.
+    Calcule (phi, phi_x) à l'aide d'une quadrature stabilisée en espace logarithmique.
 
-    phi   = ∫ exp(F - C) dxi   (C = max of F, cancels in ratio)
+    phi   = ∫ exp(F - C) dxi   (C = max de F, s'annule dans le rapport)
     phi_x = ∫ -(x-xi)/(2*nu*t) * exp(F - C) dxi
+    
     """
     C = _log_integrand_max(x, t, nu)
 
@@ -71,17 +74,18 @@ def exact_solution(
     nu: float,
 ) -> np.ndarray:
     """
-    Numerically stable exact Burgers solution via Cole-Hopf.
+    Solution exacte et numériquement stable de Burgers calculée via Cole-Hopf.
 
-    Parameters
+    Paramètres
     ----------
-    x_vec : 1-D array, shape (Nx,)
-    t_vec : 1-D array, shape (Nt,)  — t=0 handled separately
+    x_vec : tableau 1D, forme (Nx,)
+    t_vec : tableau 1D, forme (Nt,)  — le cas t = 0 est traité séparément
     nu    : float
 
-    Returns
+    Retourne
     -------
-    U_exact : 2-D array, shape (Nx, Nt)
+    U_exact : tableau 2D, forme (Nx, Nt)
+    
     """
     Nx, Nt = len(x_vec), len(t_vec)
     U = np.zeros((Nx, Nt))
@@ -105,7 +109,7 @@ def exact_solution(
 
 
 # -----------------------------------------------------------------------
-# Metrics
+# Mesures de sortie
 # -----------------------------------------------------------------------
 
 def relative_l2(u_pred: np.ndarray, u_true: np.ndarray) -> float:
@@ -119,23 +123,24 @@ def relative_linf(u_pred: np.ndarray, u_true: np.ndarray) -> float:
 
 
 # -----------------------------------------------------------------------
-# Prediction on a grid
+# Prédictions sur la grille
 # -----------------------------------------------------------------------
 
 def predict_on_grid(
-    model: nn.Module,
-    x_vec: np.ndarray,
-    t_vec: np.ndarray,
+    model:  nn.Module,
+    x_vec:  np.ndarray,
+    t_vec:  np.ndarray,
     device: torch.device,
 ) -> np.ndarray:
     """
-    Evaluate the PINN on a (Nx x Nt) grid.
+    Evalue la solution approchée grâce au PINN sur une grille (Nx,Nt)
 
     Returns
     -------
-    U_pred : shape (Nx, Nt)
+    U_pred : taille (Nx, Nt)
+
     """
-    X, T = np.meshgrid(x_vec, t_vec, indexing="ij")   # (Nx, Nt)
+    X, T   = np.meshgrid(x_vec, t_vec, indexing="ij")   # (Nx, Nt)
     x_flat = torch.tensor(X.ravel()[:, None], dtype=torch.float32, device=device)
     t_flat = torch.tensor(T.ravel()[:, None], dtype=torch.float32, device=device)
 
@@ -151,24 +156,25 @@ def predict_on_grid(
 # -----------------------------------------------------------------------
 
 def plot_results(
-    U_pred: np.ndarray,
+    U_pred:  np.ndarray,
     U_exact: np.ndarray,
-    x_vec: np.ndarray,
-    t_vec: np.ndarray,
-    cfg: Config,
-    save: bool = True,
+    x_vec:   np.ndarray,
+    t_vec:   np.ndarray,
+    cfg:     Config,
+    save:    bool = True,
 ) -> None:
     """
-    Three-panel figure:
-      (a) PINN prediction heatmap
-      (b) Exact solution heatmap
-      (c) Absolute error heatmap
-    plus one figure with three time-slice comparisons.
+    Figure en trois volets :
+      (a) Carte thermique des prévisions PINN
+      (b) Carte thermique de la solution exacte
+      (c) Carte thermique de l'erreur absolue
+    ainsi qu'une figure présentant trois comparaisons sur des tranches temporelles.
+    
     """
     os.makedirs(cfg.save_path, exist_ok=True)
     error = np.abs(U_pred - U_exact)
 
-    # ---- Heatmaps --------------------------------------------------------
+    # -- Heatmaps --
     fig, axes = plt.subplots(1, 3, figsize=(15, 4))
     extent = [t_vec[0], t_vec[-1], x_vec[0], x_vec[-1]]
     kw = dict(aspect="auto", origin="lower", extent=extent)
@@ -206,7 +212,7 @@ def plot_results(
         print(f"Figure saved → {path}")
     plt.show()
 
-    # ---- Time slices -------------------------------------------------------
+    # -- Time slices --
     t_slices = [0.25, 0.50, 0.75]
     fig2, axes2 = plt.subplots(1, 3, figsize=(13, 4), sharey=True)
 
@@ -232,7 +238,12 @@ def plot_results(
 
 def plot_training_history(history: list[dict], cfg: Config, save: bool = True) -> None:
     """
-    Plot total loss and each component over training epochs.
+    Affiche au cours de l'entraînement : 
+        - loss totale
+        - loss_PDE
+        - loss_CI
+        - loss_BC
+
     """
     import pandas as pd
 
